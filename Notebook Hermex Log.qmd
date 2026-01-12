@@ -1,0 +1,245 @@
+---
+title: "Hermex Log"
+format: pdf
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+Instalando a biblioteca do Tidyverse:
+
+```{r}
+install.packages("tidyverse")
+```
+
+Carregando os pacotes do Tidyverse:
+
+```{r}
+library(tidyverse)
+```
+
+Importando o arquivo de pedidos:
+
+```{r}
+pedidos<-read_csv("Pedidos_Hermex_Log.csv", show_col_types = FALSE)
+```
+
+```{r}
+head(pedidos)
+```
+
+Selecionando as colunas de PedidoID e Status:
+
+```{r}
+pedidos %>%
+  select(PedidoID, Status)
+```
+
+Selecionando colunas que começam com o termo "Data":
+
+```{r}
+pedidos %>%
+  select(starts_with("Data"))
+```
+
+Filtrando pedidos no intervalo do dia 01/07 até 01/08:
+
+```{r}
+pedidos %>%
+  filter(DataPedido >= as.Date("2024-07-01") & DataPedido <= as.Date("2024-08-01"))
+```
+
+Filtrando os pedidos no intervalo do dia 01/07 até 01/08 que estão pendentes ou em trânsito:
+
+```{r}
+pedidos %>%
+  filter(DataPedido >= as.Date("2024-07-01") & DataPedido <= as.Date("2024-08-01"), Status == "Em trânsito" | Status == "Pendente")
+```
+
+Aula 2 - Criando métricas
+
+Desafio: Adicionar uma nova coluna no dataframe de pedidos, a coluna de benefícios e modificar uma informação na coluna TransportadorID.
+
+Solução: Usar a função mutate do pacote dplyr
+
+Criando uma nova coluna de benefícios:
+
+```{r}
+pedidos %>%
+  mutate(beneficios= ifelse(ValorTotal>=2000,"Liberado","Não liberado"))
+
+```
+
+Modificando dados na coluna TransportadorID?
+
+```{r}
+pedidos %>%
+  mutate(TransportadorID= ifelse(is.na(TransportadorID),"particular",TransportadorID))
+```
+
+Desafio: Calcular a média do tempo de entrega dos pedidos
+
+Solução: Usar a função summarize que consegue calcular a média e mediana dos dados
+
+Calculando o tempo de entrega de cada um dos pedidos:
+
+```{r}
+pedidos %>%
+  mutate(DataPedido= as.Date(DataPedido),
+         DataEntrega= as.Date(DataEntrega),
+         TempoEntrega= as.numeric(difftime(DataEntrega, DataPedido, units = "days")))
+```
+
+Calculando a média do tempo de entrega:
+
+```{r}
+pedidos %>%
+  mutate(DataPedido= as.Date(DataPedido),
+         DataEntrega= as.Date(DataEntrega),
+         TempoEntrega= as.numeric(difftime(DataEntrega, DataPedido, units = "days"))
+         ) %>%
+  summarize(MediaTempoEntrega= mean(TempoEntrega, na.rm = TRUE))
+```
+
+Desafio: Calcular a porcentagem de pedidos por região do Brasil
+
+Solução: Usar a função group by para agrupar os pedidos por região
+
+Agrupando os pedidos por região:
+
+```{r}
+percentual_pedidos_por_regiao <- pedidos %>%
+  group_by(Regiao)%>%
+  summarize(QuantidadePedidos = n()) %>%
+  mutate(Percentual = (QuantidadePedidos / sum(QuantidadePedidos))*100)
+
+(percentual_pedidos_por_regiao)
+```
+
+**Aula 3 - Formatando os dados**
+
+Desafio: Deixar as datas em um formato mais eficiente para análises e futuros gráficos temporais
+
+Solução: Usar a função pivot longer do pacote tidyr para transformas as colunas DataPedido e DataEntrega do formato largo para o formato longo
+
+Transformando as colunas DataPedido e DataEntrega para o formato longo:
+
+```{r}
+pedidos <- pedidos %>%
+  pivot_longer(cols= c(DataPedido, DataEntrega),
+               names_to= "TipoData",
+               values_to= "Data")
+```
+
+```{r}
+head(pedidos)
+```
+
+Desafio: Separar a informação de hórario da informação de data
+
+Solução: Usar a função saparate do pacote tidyr
+
+Separando os horários da coluna Data:
+
+```{r}
+pedidos <- pedidos %>%
+  separate(Data, into= c("Data", "Horario"), sep =" ")
+```
+
+```{r}
+head(pedidos)
+```
+
+Desafio: Separar dados do CEP da coluna de endereço
+
+Solução: Usar a função str_extract do pacote stringr
+
+```{r}
+pedidos <- pedidos %>%
+  mutate(CEP = str_extract(EnderecoPedido, "\\d{5}-\\d{3}"))
+```
+
+```{r}
+head(pedidos)
+```
+
+Aula 4 - Visualizando os dados
+
+Desafio: Tipificar os dados de forma correta para deixar as visualizações mais eficientes, como por exemplo, a data.
+
+Solução: Usar a função ymd do pacote lubridate para converter dados para o formato de ano, mês, dia.
+
+Consultando os tipos de dados do nosso dataframe:
+
+```{r}
+str(pedidos)
+```
+
+Alterar a coluna Data:
+
+```{r}
+pedidos$Data <- ymd(pedidos$Data)
+```
+
+Conferir se realmente foi alterado:
+
+```{r}
+str(pedidos)
+```
+
+Desafio: Criar um gráfico com a porcentagem de pedidos por região
+
+Solução: Usar a função geom_bar do pacote ggplot2 para criar um gráfico de barras.
+
+Gráfico do percentual de pedidos por região:
+
+```{r}
+grafico <- ggplot(percentual_pedidos_por_regiao, aes(x= Regiao, y= Percentual, fill = Regiao))+   geom_bar(stat= "identity")+   labs(title= "Porcentagem de Pedidos por Região",        x= "Região",        y= "Percentual (%)")+   theme_minimal()
+
+print(grafico)
+```
+
+Desafio: Visualizar a soma do valor total dos pedidos por mês.
+
+Solução: Usar algumas funções que já aprendemos anteriormente para agrupar o valor total dos pedidos por mês e depois vamos usar uma nova função do pacote ggplot2 para criar uma visualização, a função geom_line que vai criar um gráfico de linhas.
+
+Agrupando o valor total por mês:
+
+```{r}
+pedidos_agrupados <- pedidos %>%   mutate(MesAno = floor_date(Data, "month")) %>%   group_by(MesAno) %>%   summarise(ValorTotalMensal = sum(ValorTotal, na.rm = TRUE))
+```
+
+Criando o gráfico com os dados agrupados:
+
+```{r echo=FALSE, warning=FALSE}
+grafico <- ggplot(pedidos_agrupados, aes(x = MesAno, y = ValorTotalMensal))+ geom_line(color = "blue")+   labs(title = "Valor Total dos Pedidos ao Longo do Tempo", x = "Data do Pedido", y = "Valor Total") +   theme_minimal()  print(grafico)
+```
+
+Aula 5 - Finalizando o projeto
+
+Desafio: Salvar o dataframe atualizado e salvar o notebook.
+
+Solução: Usar a função write_csv do pacote readr que permite exportar dataframes para arquivos csv.
+
+```{r}
+write_csv(pedidos, "Pedidos_Hermex_Log_atualizado.csv")
+```
